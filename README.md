@@ -1,1 +1,1 @@
-# KoompanMPC-for-synchronization
+# KoopmanMPC-for-synchronization
