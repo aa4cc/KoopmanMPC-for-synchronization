@@ -88,10 +88,10 @@ f_kmpc = @(x, r) kmpc(x,r) + normrnd(0, u_MPC_random_sigma);    % Add random per
 f_collect_data = 1; % Flag: 1: collect data, 0: load saved data
 if f_collect_data == 1
     [X,Y,U] = CollectData_FK_model_closed_loop(Ntraj_idf, Tsim_idf, Ts, f_kmpc, Xref_idf, X0_idf, fk_params);
-    f_name = ['./data/DEMO_data_PeriodicTraj_5_pends_numTraj-' , num2str(Ntraj_idf), '.mat'];
+    f_name = ['./simulations/data/DEMO_data_PeriodicTraj_5_pends_numTraj-' , num2str(Ntraj_idf), '.mat'];
     save(f_name, 'X', 'Y', 'U');
 else
-    load('.\data\DEMO_data_PeriodicTraj_5_pends_numTraj-100.mat');  
+    load('./simulations/data/DEMO_data_PeriodicTraj_5_pends_numTraj-100.mat');  
 end
 disp('Data collected');
 
