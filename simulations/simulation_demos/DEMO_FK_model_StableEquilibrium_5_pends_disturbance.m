@@ -2,9 +2,6 @@
 % author: Loi Do
 % doloi@fel.cvut.cz
 
-% Demo, showing synchronization to stable equilibrium of FK model with 5 
-% pendulums and with external disturbances
-
 clc;
 clear;
 rng(10); % Select a seed for random numbers

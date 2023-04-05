@@ -1,4 +1,4 @@
-%% DEMO: synchronization to the Periodic orbit
+%% DEMO: Comparison of MPC and KMPC for stabilization to periodic orbit
 % author: Loi Do
 % doloi@fel.cvut.cz
 
@@ -78,23 +78,27 @@ Xref = repmat([t*v_ref, ones(size(t))*v_ref]', N, 1);
 [sys_d, ~] = create_linearized_FK_model(fk_params, Ts); % Linearized system around system's origin 
 
 % Build MPC controller with linearized system
-[~,~,kmpc]  = osqp_MPC_controller(sys_d.A,sys_d.B,sys_d.C,Qy_idf,R_idf,Qy_idf,Npred_idf,umin_mpc, umax_mpc, x_min, x_max);
-f_kmpc = @(x, r) kmpc(x,r) + normrnd(0, u_MPC_random_sigma);    % Add random perturbation
+[~,~,mpc_idf]  = osqp_MPC_controller(sys_d.A,sys_d.B,sys_d.C,Qy_idf,R_idf,Qy_idf,Npred_idf,umin_mpc, umax_mpc, x_min, x_max);
+f_kmpc = @(x, r) mpc_idf(x,r) + normrnd(0, u_MPC_random_sigma);    % Add random perturbation
 
 % Collecting closed-loop data for EDMD
-f_collect_data = 1; % Flag: 1: collect data, 0: load saved data
+f_collect_data = 0; % Flag: 1: collect data, 0: load saved data
 if f_collect_data == 1
     [X,Y,U] = CollectData_FK_model_closed_loop(Ntraj_idf, Tsim_idf, Ts, f_kmpc, Xref_idf, X0_idf, fk_params);
-    f_name = ['./simulations/data/DEMO_data_PeriodicTraj_5_pends_numTraj-' , num2str(Ntraj_idf), '.mat'];
+    f_name = ['./data/DEMO_data_PeriodicTraj_5_pends_numTraj-' , num2str(Ntraj_idf), '.mat'];
     save(f_name, 'X', 'Y', 'U');
 else
-    load('./simulations/data/DEMO_data_PeriodicTraj_5_pends_numTraj-100.mat');  
+    load('.\data\DEMO_data_PeriodicTraj_5_pends_numTraj-100.mat');  
 end
 disp('Data collected');
 
 % Run EDMD
 [A,B,C,f_BuildKoopmanState]= SystemID_via_EDMD_FK(X,Y,U); 
 %% MPC ctrl
+
+% Build MPC controller with linearized system
+[~,~,mpc]  = osqp_MPC_controller(sys_d.A,sys_d.B,sys_d.C,Qy,R,Qy,Npred,umin_mpc, umax_mpc, x_min, x_max);
+
 % MPC setup for the Koopman linear system
 % z_{k+1}=Az_{k}+Bu_{k} ; y_{k} = Cz_{k}
 
@@ -104,24 +108,34 @@ disp('Data collected');
 Xsim = zeros(2*N, Nsim+1);          % Simulated state of controlled FK model
 Usim = zeros(1, Nsim);              % Controlled Inputs
 
+Xsim_MPC = zeros(2*N, Nsim+1);      % Simulated state of uncontrolled FK model 
+Usim_MPC = zeros(1, Nsim);    
+
 % Closed-loop simulation
 for i = 1:Nsim
     if(mod(i,10) == 0)
         fprintf('Closed-loop simulation, %f %% completed \n', 100 * i / Nsim);
     end
 
-    yref = Xref(:,i:i+Npred-1);    % Current reference with preview
+    yref = Xref(:,i:i+Npred-1);    % reference output
     z = f_BuildKoopmanState(Xsim(:,i));   % create the state of the Koopman linear system via lifting
     
+
     [u, ~] = kmpc(z,yref); % get the control input
+    [u_mpc, ~] = mpc(Xsim_MPC(:,i),yref); % get the control input
+
     u_disturbance = zeros(N, 1); % No disturbance
 
     [~,Y_nonlin] = build_and_sim_nonlin_FK_model(fk_params, Xsim(:,i), u(1), u_disturbance, [0 Ts]); % advance in time for one step 
+    [~,Y_nonlin_unctrl] = build_and_sim_nonlin_FK_model(fk_params, Xsim_MPC(:,i), u_mpc(1), u_disturbance, [0 Ts]); % Advance the uncontrolled system
+
 
     % store data
     Xsim(:,i+1) = Y_nonlin(end,:)';
     Usim(i) = u(1);
-
+    
+    Usim_MPC(i) = u_mpc(1);
+    Xsim_MPC(:,i+1) = Y_nonlin_unctrl(end,:)'; 
 end
 
 %% Display results
@@ -134,6 +148,7 @@ hold on;
 idx = 1;
 for ii = 1:2:2*N
     plot(t(1:size(Xsim, 2)), Xsim(ii,:)', 'Linewidth', 1.5, 'Color', color_p(idx));
+    plot(t(1:size(Xsim, 2)), Xsim_MPC(ii,:)', 'Linewidth', 1, 'Color', color_p(idx), 'LineStyle','--');
     idx = idx + 1;
 end
 plot(t, Xref(1,1:numel(t)),'Linewidth', 3, 'Linestyle', ':');
@@ -142,12 +157,13 @@ grid on;
 ylabel('Angle [rad]');
 xlabel('Time [s]');
 
-
+%%
 subplot(2,2,2);
 hold on;
 idx = 1;
 for ii = 2:2:2*N
     plot(t(1:size(Xsim, 2)), Xsim(ii,:)', 'Linewidth', 1.5, 'Color', color_p(idx));
+    plot(t(1:size(Xsim, 2)), Xsim_MPC(ii,:)', 'Linewidth', 1, 'Color', color_p(idx), 'LineStyle','--');
     idx = idx + 1;
 end
 plot(t, Xref(2,1:numel(t)),'Linewidth', 3, 'Linestyle', ':');
@@ -167,4 +183,11 @@ grid on;
 ylabel('Torque [N.m]');
 xlabel('Time [s]');
 
+%%
+KMPC_MPC_compar_PeriodicTraj_dataset.KMPC.Xsim = Xsim;
+KMPC_MPC_compar_PeriodicTraj_dataset.KMPC.Usim = Usim;
+KMPC_MPC_compar_PeriodicTraj_dataset.MPC.Xsim_MPC = Xsim_MPC;
+KMPC_MPC_compar_PeriodicTraj_dataset.MPC.Usim_MPC = Usim_MPC;
+KMPC_MPC_compar_PeriodicTraj_dataset.t = t;
 
+save('./data/KMPC_MPC_compar_PeriodicTraj_dataset.mat','KMPC_MPC_compar_PeriodicTraj_dataset');

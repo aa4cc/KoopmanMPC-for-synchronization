@@ -1,4 +1,4 @@
-%% DEMO: synchronization to an unstable equilibrium - the Swing-up
+%% DEMO: Comparison of MPC and KMPC for stabilization to stable equilibrium
 % author: Loi Do
 % doloi@fel.cvut.cz
 
@@ -9,7 +9,7 @@ rng(10); % Select a seed for random numbers
 %% ************************ Parameters ********************** %%
 %%% FK model
 N = 5; % Number of pendulums
-fk_params.f_origin = 1; % Boolean flag: origin of the system in 0 (downward position); 1 (upward position);                                
+fk_params.f_origin = 0; % Boolean flag: origin of the system in 0 (downward position); 1 (upward position);                                
 fk_params.m = 0.017;                            % Array of weigths of a pendulum [kg];
 fk_params.l = 0.15;                             % Length of a pendulum
 fk_params.gamma = 3.195433320423741e-04;        % Absolute friction coeficient 
@@ -33,7 +33,7 @@ umax = 0.1; % Upper bounds on control
 fk_params.umin = umin;
 fk_params.umax = umax;
 
-Qy = kron(eye(N), diag([0,0.01])); % Penalization of system's outputs both for MPC for identification and KMPC for control
+Qy = kron(eye(N), diag([0,0.01])); % Penalization of system's outputs in MPC for identification
 idx = 1;
 for ii=1:2:2*N
     Qy(ii,ii) = 10*idx^3;
@@ -49,12 +49,10 @@ umax_mpc = umax.*ones(nu,1);
 
 %%% Identification
 Ntraj_idf = 100;    % Number of trajectories for identification
-Tsim_idf = 1.5;    % Simulation time of a single trajectory for identification  
-X0_idf =  repmat([0;0],N,1) + repmat([1;0],N,1).*normrnd(0, 0.5, [2*N,Ntraj_idf]); % Initial states for all trajectories with random perturbations, Normal distribution
+Tsim_idf = 1;    % Simulation time of a single trajectory for identification
+X0_idf =  repmat([0;0],N,1) + pi*repmat([1;0],N,1).*(rand(2*N,Ntraj_idf) - 0.5);    % Initial states for all trajectories with random perturbations
 Xref_idf = repmat(kron(ones(N,1), [0;0]), 1, Tsim_idf/Ts + 1); % Reference for all pendulums and for whole time interval of identification
-
-
-u_MPC_random_sigma = 0.15;  % Perturbation to the input used for identification
+u_MPC_random_sigma = 0.01;  % Perturbation to the input used for identification
 
 x_min = -1000*ones(2*N,1); % Lower bounds on states
 x_max = 1000*ones(2*N,1); % Upper bounds on states
@@ -64,26 +62,33 @@ n = 6*N;  % lifted state dimension
 xlift_min = -1000*ones(n,1); % Lower bounds on lifted states
 xlift_max = 1000*ones(n,1); % Upper bounds on lifted states
 
-Tsim = 3; % Simulation length of the final simulation
+Tsim = 4; % Simulation length of the final simulation
 Nsim = Tsim/Ts;
 t = 0:Ts:Tsim;
+
+% Disturbance for KMPC experiment: 
+% ------ NOTE: change, if different number ofpendulums is used ------
+disturbance_idx = [0; 2; 4; 6; 8]/Ts + 1;   % Simulation time-index of disturbance occurance
+disturbance_amp = [-2; 2; 1.5; -0.5; 2];    % Amplitude of the disturbance (N.m)
+disturbance_pend_idx = [2; 3; 5; 2; 4];     % Index of the pendulum being disturbed
+
 
 %% ************************PART I: Identification ********************** %%
 % Create controller based on linearized FK model.
 [sys_d, ~] = create_linearized_FK_model(fk_params, Ts); % Linearized system around system's origin 
 
 % Build MPC controller with linearized system
-[~,~,kmpc]  = osqp_MPC_controller(sys_d.A,sys_d.B,sys_d.C,Qy,R,Qy,Npred,umin_mpc, umax_mpc, x_min, x_max);
-f_kmpc = @(x, r) kmpc(x,r) + normrnd(0, u_MPC_random_sigma);    % Add random perturbation
+[~,~,mpc]  = osqp_MPC_controller(sys_d.A,sys_d.B,sys_d.C,Qy,R,Qy,Npred,umin_mpc, umax_mpc, x_min, x_max);
+f_kmpc = @(x, r) mpc(x,r) + normrnd(0, u_MPC_random_sigma);    % Add random perturbation
 
 % Collecting closed-loop data for EDMD
 f_collect_data = 1; % Flag: 1: collect data, 0: load saved data
 if f_collect_data == 1
     [X,Y,U] = CollectData_FK_model_closed_loop(Ntraj_idf, Tsim_idf, Ts, f_kmpc, Xref_idf, X0_idf, fk_params);
-    f_name = ['./simulations/data/DEMO_data_UnstableEq_5_pends_numTraj-' , num2str(Ntraj_idf), '.mat'];
+    f_name = ['./data/DEMO_data_StableEq_5_pends_numTraj-' , num2str(Ntraj_idf), '.mat'];
     save(f_name, 'X', 'Y', 'U');
 else
-    load('./simulations/data/DEMO_data_UnstableEq_5_pends_numTraj-100.mat');  
+    load('.\data\DEMO_data_StableEq_5_pends_numTraj-100.mat');  
 end
 disp('Data collected');
 
@@ -97,9 +102,9 @@ disp('Data collected');
 
 % Pre-allocate for storing the data
 Xsim = zeros(2*N, Nsim+1);          % Simulated state of controlled FK model
-Xsim(:,1) = repmat([-pi;0],N,1);
+Xsim_MPC = zeros(2*N, Nsim+1);   % Simulated state of uncontrolled FK model 
 Usim = zeros(1, Nsim);              % Controlled Inputs
-
+Usim_MPC = zeros(1, Nsim);              % Controlled Inputs
 % Closed-loop simulation
 for i = 1:Nsim
     if(mod(i,10) == 0)
@@ -110,26 +115,37 @@ for i = 1:Nsim
     z = f_BuildKoopmanState(Xsim(:,i));   % create the state of the Koopman linear system via lifting
     
     [u, ~] = kmpc(z,yref); % get the control input
-    u_disturbance = zeros(N, 1); % No disturbance
+    [u_mpc, ~] = mpc(Xsim_MPC(:,i),yref); % get the control input
+
+    u_disturbance = zeros(N, 1);
+    flag_dist = disturbance_idx == i;   % Occurance of the disturbance (and pointer to the array)
+    if any(flag_dist)
+        disp("Disturbance applied");
+        idx_curr_disturb = disturbance_pend_idx(flag_dist);
+        u_disturbance(idx_curr_disturb) = disturbance_amp(flag_dist);
+    end
 
     [~,Y_nonlin] = build_and_sim_nonlin_FK_model(fk_params, Xsim(:,i), u(1), u_disturbance, [0 Ts]); % advance in time for one step 
+    [~,Y_nonlin_unctrl] = build_and_sim_nonlin_FK_model(fk_params, Xsim_MPC(:,i), u_mpc(1), u_disturbance, [0 Ts]); % Advance the uncontrolled system
 
     % store data
     Xsim(:,i+1) = Y_nonlin(end,:)';
     Usim(i) = u(1);
 
-end
+    Usim_MPC(i) = u_mpc(1);
+    Xsim_MPC(:,i+1) = Y_nonlin_unctrl(end,:)'; 
 
-Xsim(1:2:end, :) = Xsim(1:2:end, :) + pi; % Shift the state-space
+end
 
 %% Display results
 figure;
-title('Synchronization to unstable equilibrium: Swing up');
+title('Synchronization to stable equilibrium: Vibration control');
 subplot(2,1,1);
 hold on;
 idx = 1;
 for ii = 1:2:2*N
     plot(t, Xsim(ii,:)', 'Linewidth', 1.5, 'Color', color_p(idx));
+    plot(t, Xsim_MPC(ii,:)', 'Linewidth', 1, 'Color', color_p(idx), 'LineStyle','--');
     idx = idx + 1;
 end
 plot(t, zeros(size(t)),'Linewidth', 3, 'Linestyle', ':');
@@ -138,15 +154,26 @@ box on;
 grid on;
 ylabel('Angle [rad]');
 xlabel('Time [s]');
-ylim([0 2*pi]);
+% xlim([0 2]);
+ylim([-1.6 1.6]);
+
 subplot(2,1,2);
 plot(t(1:end-1), Usim, 'Linewidth', 1.5);
 legend('Input');
 box on;
 grid on;
+hold on;
+plot(t(1:end-1), Usim_MPC, 'Linewidth', 1.5);
 ylabel('Torque [N.m]');
 xlabel('Time [s]');
 ylim([-0.15 0.15]);
 
+%%
+KMPC_MPC_compar_StableEq_dataset.KMPC.Xsim = Xsim;
+KMPC_MPC_compar_StableEq_dataset.KMPC.Usim = Usim;
+KMPC_MPC_compar_StableEq_dataset.MPC.Xsim_MPC = Xsim_MPC;
+KMPC_MPC_compar_StableEq_dataset.MPC.Usim_MPC = Usim_MPC;
+KMPC_MPC_compar_StableEq_dataset.t = t;
 
+save('./data/KMPC_MPC_compar_StableEq_dataset.mat','KMPC_MPC_compar_StableEq_dataset');
 
