@@ -1,4 +1,4 @@
-%% DEMO: synchronization to stable equilibrium with disturbances
+%% DEMO: synchronization to the Periodic orbit
 % author: Loi Do
 % doloi@fel.cvut.cz
 
@@ -113,7 +113,7 @@ for i = 1:Nsim
         fprintf('Closed-loop simulation, %f %% completed \n', 100 * i / Nsim);
     end
 
-    yref = Xref(:,i:i+Npred-1);    % reference output without preview (constant reference)
+    yref = Xref(:,i:i+Npred-1);    % Current reference with preview
     z = f_BuildKoopmanState(Xsim(:,i));   % create the state of the Koopman linear system via lifting
     
     [u, ~] = kmpc(z,yref); % get the control input

@@ -1,4 +1,4 @@
-%% DEMO: synchronization to stable equilibrium with disturbances
+%% DEMO: synchronization to an unstable equilibrium - the Swing-up
 % author: Loi Do
 % doloi@fel.cvut.cz
 
@@ -36,7 +36,7 @@ umax = 0.1; % Upper bounds on control
 fk_params.umin = umin;
 fk_params.umax = umax;
 
-Qy = kron(eye(N), diag([0,0.01])); % Penalization of system's outputs in MPC for identification
+Qy = kron(eye(N), diag([0,0.01])); % Penalization of system's outputs both for MPC for identification and KMPC for control
 idx = 1;
 for ii=1:2:2*N
     Qy(ii,ii) = 10*idx^3;
@@ -141,7 +141,6 @@ box on;
 grid on;
 ylabel('Angle [rad]');
 xlabel('Time [s]');
-% xlim([0 2]);
 ylim([0 2*pi]);
 subplot(2,1,2);
 plot(t(1:end-1), Usim, 'Linewidth', 1.5);

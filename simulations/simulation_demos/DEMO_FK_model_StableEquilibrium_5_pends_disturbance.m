@@ -44,7 +44,7 @@ for ii=1:2:2*N
 end
 R = 0.1;
 
-Npred = 50; % Prediction horizon for MPC and KMPC
+Npred = 3; % Prediction horizon for MPC and KMPC
 
 nu = size(R,2); % input dimension
 umin_mpc = umin.*ones(nu,1);
@@ -85,7 +85,7 @@ disturbance_pend_idx = [1; 3; 5; 2; 4];     % Index of the pendulum being distur
 f_kmpc = @(x, r) kmpc(x,r) + normrnd(0, u_MPC_random_sigma);    % Add random perturbation
 
 % Collecting closed-loop data for EDMD
-f_collect_data = 1; % Flag: 1: collect data, 0: load saved data
+f_collect_data = 0; % Flag: 1: collect data, 0: load saved data
 if f_collect_data == 1
     [X,Y,U] = CollectData_FK_model_closed_loop(Ntraj_idf, Tsim_idf, Ts, f_kmpc, Xref_idf, X0_idf, fk_params);
     f_name = ['./simulations/data/DEMO_data_StableEq_5_pends_numTraj-' , num2str(Ntraj_idf), '.mat'];
