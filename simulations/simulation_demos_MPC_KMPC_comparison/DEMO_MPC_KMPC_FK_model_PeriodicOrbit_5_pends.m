@@ -157,7 +157,7 @@ grid on;
 ylabel('Angle [rad]');
 xlabel('Time [s]');
 
-%%
+%
 subplot(2,2,2);
 hold on;
 idx = 1;
@@ -169,7 +169,7 @@ end
 plot(t, Xref(2,1:numel(t)),'Linewidth', 3, 'Linestyle', ':');
 box on;
 grid on;
-ylabel('Angle [rad]');
+ylabel('Anglular speed [rad/s]');
 xlabel('Time [s]');
 
 
@@ -177,10 +177,13 @@ xlabel('Time [s]');
 % Input
 subplot(2,2,3:4);
 plot(t(1:numel(Usim)), Usim, 'Linewidth', 1.5);
-legend('Input');
+
+hold on
+plot(t(1:numel(Usim_MPC)), Usim_MPC, 'Linewidth', 1.5, 'LineStyle','--');
+ylim([-0.15, 0.15])
 box on;
 grid on;
-ylabel('Torque [N.m]');
+ylabel('Torque [N m]');
 xlabel('Time [s]');
 
 %%

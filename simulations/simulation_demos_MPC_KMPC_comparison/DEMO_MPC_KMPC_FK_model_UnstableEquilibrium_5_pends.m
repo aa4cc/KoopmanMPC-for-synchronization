@@ -146,8 +146,8 @@ for ii = 1:2:2*N
     plot(t, Xsim_MPC(ii,:)', 'Linewidth', 1, 'Color', color_p(idx), 'LineStyle','--');
     idx = idx + 1;
 end
-plot(t, zeros(size(t)),'Linewidth', 3, 'Linestyle', ':');
-legend('#1', '#2', '#3','#4','#5', 'Reference');
+% plot(t, zeros(size(t)),'Linewidth', 3, 'Linestyle', ':');
+% legend('#1', '#2', '#3','#4','#5', 'Reference');
 box on;
 grid on;
 ylabel('Angle [rad]');
@@ -162,7 +162,7 @@ plot(t(1:end-1), Usim_MPC, 'Linewidth', 1.5);
 legend('Input');
 box on;
 grid on;
-ylabel('Torque [N.m]');
+ylabel('Torque [N m]');
 xlabel('Time [s]');
 ylim([-0.15 0.15]);
 

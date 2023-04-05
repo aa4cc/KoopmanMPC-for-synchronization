@@ -82,7 +82,7 @@ disturbance_pend_idx = [2; 3; 5; 2; 4];     % Index of the pendulum being distur
 f_kmpc = @(x, r) mpc(x,r) + normrnd(0, u_MPC_random_sigma);    % Add random perturbation
 
 % Collecting closed-loop data for EDMD
-f_collect_data = 1; % Flag: 1: collect data, 0: load saved data
+f_collect_data = 0; % Flag: 1: collect data, 0: load saved data
 if f_collect_data == 1
     [X,Y,U] = CollectData_FK_model_closed_loop(Ntraj_idf, Tsim_idf, Ts, f_kmpc, Xref_idf, X0_idf, fk_params);
     f_name = ['./data/DEMO_data_StableEq_5_pends_numTraj-' , num2str(Ntraj_idf), '.mat'];
@@ -145,11 +145,11 @@ hold on;
 idx = 1;
 for ii = 1:2:2*N
     plot(t, Xsim(ii,:)', 'Linewidth', 1.5, 'Color', color_p(idx));
-    plot(t, Xsim_MPC(ii,:)', 'Linewidth', 1, 'Color', color_p(idx), 'LineStyle','--');
+    plot(t, Xsim_MPC(ii,:)', 'Linewidth', 1.5, 'Color', color_p(idx), 'LineStyle','--');
     idx = idx + 1;
 end
-plot(t, zeros(size(t)),'Linewidth', 3, 'Linestyle', ':');
-legend('#1', '#2', '#3','#4','#5', 'Reference');
+% plot(t, zeros(size(t)),'Linewidth', 3, 'Linestyle', ':');
+% legend('#1', '#2', '#3','#4','#5');
 box on;
 grid on;
 ylabel('Angle [rad]');
@@ -159,12 +159,12 @@ ylim([-1.6 1.6]);
 
 subplot(2,1,2);
 plot(t(1:end-1), Usim, 'Linewidth', 1.5);
-legend('Input');
 box on;
 grid on;
 hold on;
-plot(t(1:end-1), Usim_MPC, 'Linewidth', 1.5);
-ylabel('Torque [N.m]');
+plot(t(1:end-1), Usim_MPC, 'Linewidth', 1.5, 'Linestyle', '--');
+legend('KMPC', 'MPC');
+ylabel('Torque [N m]');
 xlabel('Time [s]');
 ylim([-0.15 0.15]);
 
