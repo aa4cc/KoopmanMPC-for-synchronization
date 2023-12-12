@@ -41,7 +41,7 @@ for ii=1:2:2*N
 end
 R = 0.1;
 
-Npred = 3; % Prediction horizon for MPC and KMPC
+Npred = 50; % Prediction horizon for MPC and KMPC
 
 nu = size(R,2); % input dimension
 umin_mpc = umin.*ones(nu,1);
@@ -88,7 +88,7 @@ if f_collect_data == 1
     f_name = ['./simulations/data/DEMO_data_StableEq_5_pends_numTraj-' , num2str(Ntraj_idf), '.mat'];
     save(f_name, 'X', 'Y', 'U');
 else
-    load('./simulations/data/DEMO_data_stableEq_MPC_idf_numTraj-100.mat');  
+    load('./simulations/data/DEMO_data_StableEq_5_pends_numTraj-100.mat');  
 end
 disp('Data collected');
 
@@ -146,7 +146,7 @@ for ii = 1:2:2*N
     plot(t, Xsim_unctrl(ii,:)', 'Linewidth', 1, 'Color', color_p(idx), 'LineStyle','--');
 end
 plot(t, zeros(size(t)),'Linewidth', 3, 'Linestyle', ':');
-legend('#1', '#2', '#3','#4','#5', 'Reference');
+legend('#1', '#2', '#3','#4','#5', 'Uncotrolled');
 box on;
 grid on;
 ylabel('Angle [rad]');
